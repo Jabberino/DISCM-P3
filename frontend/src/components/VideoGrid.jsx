@@ -11,8 +11,11 @@ export default function VideoGrid({ videos }) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-6">
-      {videos.map((filename) => (
-        <VideoCard key={filename} filename={filename} />
+      {videos.map((video) => (
+        <VideoCard 
+          key={video.filename || video} 
+          videoData={typeof video === 'string' ? { filename: video, stats: null } : video} 
+        />
       ))}
     </div>
   );

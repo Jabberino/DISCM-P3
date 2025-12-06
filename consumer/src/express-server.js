@@ -31,7 +31,20 @@ export function createExpressServer(rateLimiter, workerPool, port = 3000) {
         !file.startsWith('temp_') && 
         (file.endsWith('.mp4') || file.endsWith('.webm') || file.endsWith('.mov'))
       );
-      res.json(videoFiles);
+
+      const videosWithStats = await Promise.all(videoFiles.map(async (filename) => {
+        try {
+          const metaPath = path.join(uploadsDir, `${filename}.meta.json`);
+          const metaContent = await fs.readFile(metaPath, 'utf-8');
+          const stats = JSON.parse(metaContent);
+          return { filename, stats };
+        } catch (err) {
+          // If no meta file, return just filename (backward compatibility)
+          return { filename, stats: null };
+        }
+      }));
+
+      res.json(videosWithStats);
     } catch (error) {
       console.error('[Express] Error reading uploads directory:', error);
       res.status(500).json({ 

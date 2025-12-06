@@ -3,7 +3,8 @@ import { useIntersectionObserver } from '../hooks/useIntersectionObserver';
 import { getVideoUrl } from '../services/api';
 import VideoModal from './VideoModal';
 
-export default function VideoCard({ filename }) {
+export default function VideoCard({ videoData }) {
+  const { filename, stats } = videoData;
   const [elementRef, isVisible] = useIntersectionObserver({
     threshold: 0.1,
     rootMargin: '100px',
@@ -46,11 +47,19 @@ export default function VideoCard({ filename }) {
     }
   };
 
+  const formatSize = (bytes) => {
+    if (!bytes) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+  };
+
   return (
     <>
       <div
         ref={elementRef}
-        className="bg-gray-800 rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300 cursor-pointer"
+        className="bg-gray-800 rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300 cursor-pointer flex flex-col h-full"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onClick={handleClick}
@@ -72,12 +81,26 @@ export default function VideoCard({ filename }) {
             </div>
           )}
         </div>
-        <div className="p-4">
-          <h3 className="text-sm font-medium text-gray-200 truncate" title={filename}>
-            {filename}
-          </h3>
-          <p className="text-xs text-gray-400 mt-1">
-            {isHovering ? 'Playing 10s preview...' : 'Hover: 10s preview | Click: fullscreen'}
+        <div className="p-4 flex-1 flex flex-col justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-gray-200 truncate" title={filename}>
+              {filename}
+            </h3>
+            {stats && (
+              <div className="mt-2 space-y-1">
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>Compression</span>
+                  <span className="text-green-400 font-medium">{stats.compressionRatio}</span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Size</span>
+                  <span>{formatSize(stats.originalSize)} → {formatSize(stats.compressedSize)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-gray-400 mt-3 pt-3 border-t border-gray-700">
+            {isHovering ? 'Playing 10s preview...' : 'Hover: 10s preview'}
           </p>
         </div>
       </div>
