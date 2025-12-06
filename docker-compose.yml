@@ -13,6 +13,7 @@ services:
       - video_uploads:/app/uploads
     environment:
       - NODE_ENV=development
+    command: ["node", "src/index.js", "-c", "5", "-q", "10"]
 
   frontend:
     build: ./frontend
