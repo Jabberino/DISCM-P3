@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  consumer:
+    build: ./consumer
+    container_name: p3_consumer
+    ports:
+      - "3000:3000"
+      - "50051:50051"
+    networks:
+      - p3_network
+    volumes:
+      - video_uploads:/app/uploads
+    environment:
+      - NODE_ENV=development
+
+  frontend:
+    build: ./frontend
+    container_name: p3_frontend
+    ports:
+      - "5173:5173"
+    networks:
+      - p3_network
+    depends_on:
+      - consumer
+
+  producer:
+    build: ./producer
+    container_name: p3_producer
+    ports:
+      - "4000:4000"
+    networks:
+      - p3_network
+    volumes:
+      - ./producer/videos:/app/videos
+    environment:
+      - GRPC_HOST=consumer
+      - GRPC_PORT=50051
+
+networks:
+  p3_network:
+    driver: bridge
+    name: p3_network
+
+volumes:
+  video_uploads:

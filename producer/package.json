@@ -1,0 +1,17 @@
+{
+  "name": "producer",
+  "version": "1.0.0",
+  "description": "gRPC video upload producer",
+  "main": "src/producer.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "generate-videos": "./generate-videos.sh"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.12.4",
+    "@grpc/proto-loader": "^0.7.15",
+    "cors": "^2.8.5",
+    "express": "^5.2.1"
+  }
+}

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Producer Control Panel</title>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #3b82f6;
+            --success: #22c55e;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        h1 {
+            color: var(--text-primary);
+            margin-bottom: 2rem;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .card {
+            background-color: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1.5rem;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        label {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        input[type="number"] {
+            background: var(--bg-dark);
+            border: 1px solid #334155;
+            color: var(--text-primary);
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            width: 80px;
+            font-size: 1rem;
+        }
+
+        button {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.375rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #2563eb;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 1rem;
+            text-align: center;
+            border-radius: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .logs {
+            background-color: #000;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-family: 'Fira Code', monospace;
+            height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 0.875rem;
+            color: #d1d5db;
+            border: 1px solid #334155;
+        }
+
+        .log-entry {
+            margin: 2px 0;
+        }
+
+        .log-success {
+            color: var(--success);
+        }
+
+        .log-error {
+            color: var(--error);
+        }
+
+        .log-warning {
+            color: var(--warning);
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🚀 Producer Control Panel</h1>
+
+        <div class="card">
+            <div class="control-group">
+                <label>Threads per Upload:</label>
+                <input type="number" id="threads" value="3" min="1" max="20">
+                <button id="startBtn" onclick="startUpload()">Start Upload</button>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="successCount" style="color: var(--success)">0</div>
+                    <div class="stat-label">Successful</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="failCount" style="color: var(--error)">0</div>
+                    <div class="stat-label">Failed/Dupes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="status">Ready</div>
+                    <div class="stat-label">Status</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="logs" id="logs"></div>
+    </div>
+
+    <script>
+        const logsDiv = document.getElementById('logs');
+        const startBtn = document.getElementById('startBtn');
+        const threadsInput = document.getElementById('threads');
+        const eventSource = new EventSource('/api/events');
+
+        let successTotal = 0;
+        let failTotal = 0;
+
+        // Fetch config on load
+        fetch('/api/config')
+            .then(res => res.json())
+            .then(config => {
+              if (config.maxThreads) {
+                threadsInput.max = config.maxThreads;
+                // Cap current value if needed
+                if (parseInt(threadsInput.value) > config.maxThreads) {
+                   threadsInput.value = config.maxThreads;
+                }
+                document.querySelector('label').textContent = `Threads per Upload (Max ${config.maxThreads}):`;
+              }
+            })
+            .catch(err => console.error('Failed to load config:', err));
+
+        function addLog(text) {
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+
+            if (text.includes('✓ Success')) div.className += ' log-success';
+            else if (text.includes('❌') || text.includes('Failed')) div.className += ' log-error';
+            else if (text.includes('⚠') || text.includes('Duplicate')) div.className += ' log-warning';
+
+            div.textContent = text;
+            logsDiv.appendChild(div);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        eventSource.addEventListener('log', (e) => {
+            const message = JSON.parse(e.data);
+            addLog(message);
+        });
+
+        eventSource.addEventListener('finished', (e) => {
+            const summary = JSON.parse(e.data);
+            successTotal += summary.totalSuccess;
+            failTotal += summary.totalFailed;
+
+            document.getElementById('successCount').textContent = successTotal;
+            document.getElementById('failCount').textContent = failTotal;
+            document.getElementById('status').textContent = 'Finished';
+            startBtn.disabled = false;
+        });
+
+        async function startUpload() {
+            const threads = document.getElementById('threads').value;
+            startBtn.disabled = true;
+            document.getElementById('status').textContent = 'Uploading...';
+
+            try {
+                await fetch('/api/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ threads })
+                });
+            } catch (err) {
+                addLog('❌ Failed to start upload: ' + err.message);
+                startBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+
+</html>

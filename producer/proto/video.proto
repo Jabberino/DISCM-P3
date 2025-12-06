@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package video;
+
+service VideoUploadService {
+  rpc UploadVideo(stream VideoChunk) returns (UploadStatus);
+}
+
+message VideoChunk {
+  bytes data = 1;
+  string filename = 2;
+}
+
+message UploadStatus {
+  bool success = 1;
+  string message = 2;
+}
